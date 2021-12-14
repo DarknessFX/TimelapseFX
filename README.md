@@ -17,6 +17,7 @@
 Windows tool that create timelapse screenshots and export to video (MP4,AVI,GIF) with caption. Support multi-monitor and application-only screenshot.
 
 <img src="https://raw.githubusercontent.com/DarknessFX/TimelapseFX/main/.git_img/img_app.png" width="48" height="48" />
+<img src="https://raw.githubusercontent.com/DarknessFX/TimelapseFX/main/.git_img/TimelapseFX_Intro720p.gif" width="1280" height="720" />
 
 ## About
 
