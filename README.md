@@ -45,6 +45,11 @@ Export Timelapse have options to choose between video resolutions and video form
 
 Project info/blog at <a href="https://dfx.lv/TimelapseFX" target="_blank">https://dfx.lv/TimelapseFX</a> .<br/><br/>
 
+## To Do
+
+- Capture Mode by Screen Region, like Windows Snip & Sketch (Win+Shift+S).<br/>
+- Capture Mode by Application Region, to capture just part of the application (like: viewport).<br/><br/>
+
 ## Credits
 
 Microsoft FluentUI System Icons - https://github.com/microsoft/fluentui-system-icons <br/>
