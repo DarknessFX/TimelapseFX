@@ -54,7 +54,9 @@ Project info/blog at <a href="https://dfx.lv/TimelapseFX" target="_blank">https:
 
 Microsoft FluentUI System Icons - https://github.com/microsoft/fluentui-system-icons <br/>
 FFMpeg - https://ffmpeg.org <br/>
-MajorGeeks FFMpeg Build - https://m.majorgeeks.com/files/details/ffmpeg.html <br/><br/>
+MajorGeeks FFMpeg Build - https://m.majorgeeks.com/files/details/ffmpeg.html <br/>
+IsAltTabWindow() from Microsoft - https://github.com/microsoft/Windows.UI.Composition-Win32-Samples/blob/master/cpp/ScreenCaptureforHWND/ScreenCaptureforHWND/Win32WindowEnumeration.h<br/>
+Gil123 at StackOverflow, for the Windowless ScreenCaptureforHWND code - https://stackoverflow.com/questions/11283015/screen-capture-specific-window<br/><br/>
 
 ## License
 
