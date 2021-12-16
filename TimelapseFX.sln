@@ -5,16 +5,28 @@ VisualStudioVersion = 16.0.31911.196
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TimelapseFX", "TimelapseFX.vcxproj", "{086F401F-C178-4BF5-A85A-CDE26865ACBC}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TimelapseFX_Helper", "TimelapseFX_ScreenCapture.vcxproj", "{045FFB0E-D0D4-404D-8C33-13C7074B3236}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Debug|x64.ActiveCfg = Debug|x64
 		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Debug|x64.Build.0 = Debug|x64
+		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Debug|x86.ActiveCfg = Debug|x64
 		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Release|x64.ActiveCfg = Release|x64
 		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Release|x64.Build.0 = Release|x64
+		{086F401F-C178-4BF5-A85A-CDE26865ACBC}.Release|x86.ActiveCfg = Release|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Debug|x64.ActiveCfg = Debug|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Debug|x86.ActiveCfg = Debug|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Debug|x86.Build.0 = Debug|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Release|x64.ActiveCfg = Release|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Release|x86.ActiveCfg = Release|x64
+		{045FFB0E-D0D4-404D-8C33-13C7074B3236}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,9 +2,12 @@
 #include <windows.h>
 #include <string>
 #include "gcroot.h"
+#include "dwmapi.h"
 #include <msclr\marshal_cppstd.h>
 #include "MainForm.h"
+#include "TimelapseFX_Helper.h"
 
+using namespace System::Collections::Generic;
 using namespace System::Diagnostics;
 using namespace System::Drawing;
 using namespace System::Drawing::Imaging;
@@ -19,7 +22,7 @@ using namespace TimelapseFX;
 #pragma endregion
 
 
-std::string VERSION = "1.0";
+std::string VERSION = "1.1";
 
 
 #pragma region Helpers functions
@@ -42,7 +45,6 @@ ResourceManager^ GetRM () {
 }
 Icon^  GetIcon ( String^ ico ) { return ( cli::safe_cast< Icon^  >( GetRM()->GetObject( ico ) ) ); }
 Image^ GetImage( String^ img ) { return ( cli::safe_cast< Image^ >( GetRM()->GetObject( img ) ) ); }
-
 String^ GetDisplayName(String^ DeviceName) {
     DISPLAY_DEVICE dd; memset(&dd, 0, sizeof(DISPLAY_DEVICE)); dd.cb = sizeof(dd); int i = 0;
     while(EnumDisplayDevices(NULL, i, &dd, 0)) {
@@ -82,6 +84,27 @@ String^ ToSRTTimecode(int iFC, float iFR) {
     sRes = Append(sRes, ToTimecode(iFC * iFR - 1));
     return sRes;
 }
+String^ GetWindowTitle(HWND hWnd) { TCHAR szText[256]; GetWindowText(hWnd, szText, 256); return ToNString(szText); }
+bool IsAltTabWindow(HWND hWnd) {
+    if (hWnd == GetShellWindow()) { return false; }
+    if (!IsWindowVisible(hWnd)) { return false; }
+    if (GetAncestor(hWnd, GA_ROOT) != hWnd) { return false; }
+    if (GetWindowTitle(hWnd) == "") { return false; }
+    LONG style = GetWindowLong(hWnd, GWL_STYLE);
+    if (!((style & WS_DISABLED) != WS_DISABLED)) { return false; }
+    DWORD cloaked = FALSE;
+    HRESULT hrTemp = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    if (SUCCEEDED(hrTemp) && cloaked == DWM_CLOAKED_SHELL) { return false; }
+    return true;
+}
+gcroot<List<Int64>^> _oWindowsList;
+BOOL CALLBACK OnEnumWindow(HWND hwnd, LPARAM lParam) { if ( IsAltTabWindow(hwnd) ) { _oWindowsList->Add((Int64)hwnd); } return true; }
+List<Int64>^ EnumerateWindows() {
+    _oWindowsList = (static_cast<List<Int64>^>(_oWindowsList) == nullptr) ? gcnew List<Int64>() : _oWindowsList;
+    _oWindowsList->Clear();
+    EnumWindows(OnEnumWindow, 0);
+    return _oWindowsList;
+}
 #pragma endregion
 
 
@@ -109,6 +132,8 @@ private:
 
 
 public:
+    HWND        hMainForm               = NULL;
+
     bool        bIsStarting             = true;
     bool        bIs1stShot              = true;
     bool        bIsExporting            = false;
@@ -254,17 +279,10 @@ public:
 
     bool IgnoreApplications ( Process^ oProc) 
     {
-        if ( oProc->MainWindowHandle.ToInt64() == 0 )  { return true; }
-        HWND wHandle = (HWND)oProc->MainWindowHandle.ToInt64();
-        if ( wHandle == GetShellWindow() )  { return true; } 
-        if ( wHandle != GetAncestor(wHandle, GA_ROOT) )  { return true; } 
-        if ( GetWindowLongW(wHandle, GWL_STYLE) & WS_DISABLED ) { return true; } 
-        //if ( GetWindowLongW(wHandle, GWL_EXSTYLE) & WS_EX_TOOLWINDOW ) { return true; } 
         if ( oProc->ProcessName->ToLower()->Contains("svchost") ) { return true; } 
         if ( oProc->ProcessName->ToLower()->Contains("scriptedsandbox64") )  { return true; }
-        if ( oProc->ProcessName->ToLower()->Contains("applicationframehost") )  { return true; }
+        //if ( oProc->ProcessName->ToLower()->Contains("applicationframehost") )  { return true; }
         if ( oProc->ProcessName->ToLower()->Contains("textinputhost") )  { return true; }
-        if ( !IsWindowVisible(wHandle) )  { return true; }
 
         ///DEBUG:
         /*
@@ -303,25 +321,40 @@ public:
 
     void LoadApplications( Windows::Forms::CheckedListBox^ chkCMA )
     {
+        List<String^> oApps = gcnew List<String^>();        
         chkCMA->Enabled = false;
         chkCMA->Items->Clear();
-        for (int i = 0; i < Process::GetProcesses()->Length; i++) {
-            Process^ oProc = Process::GetProcesses()[i];
-            if ( IgnoreApplications( oProc ) ) { continue; }
-            String^ sProcess = "";
-            try {
-                sProcess = Append(sProcess, oProc->MainModule->FileVersionInfo->FileDescription);
-            } catch (Exception^ e) {
-                sProcess = Append(sProcess, oProc->ProcessName->ToString());
-                (void)e;
+        for each (auto hWnd in EnumerateWindows())
+        {
+            DWORD processID;
+            if ( GetWindowThreadProcessId((HWND)hWnd, &processID) ) 
+            {
+                Process^ oProc = Process::GetProcessById(processID);
+                if ( IgnoreApplications( oProc ) ) { continue; } 
+                String^ sProcess = "";
+                try {
+                    sProcess = Append(sProcess, oProc->MainModule->FileVersionInfo->FileDescription);
+                } catch (Exception^ e) {
+                    sProcess = Append(sProcess, oProc->ProcessName->ToString());
+                    (void)e;
+                }
+                sProcess = Append(sProcess, " - ");
+                // *** Replaced by GetWindowTitle function ***
+                //sProcess = Append(sProcess, oProc->MainWindowTitle->ToString()->Replace(" - ", ""));
+                sProcess = Append(sProcess, GetWindowTitle((HWND)hWnd)->Replace(" - ", ""));
+                if ( !oApps.Contains(sProcess) ) 
+                {
+                    oApps.Add(sProcess);
+                    sProcess = Append(sProcess, " - (ID:");
+                    sProcess = Append(sProcess, hWnd.ToString());
+                    // *** Replaced by Window Handle function ***
+                    //sProcess = Append(sProcess, oProc->Id.ToString());
+                    sProcess = Append(sProcess, ")");
+                    chkCMA->Items->Add(sProcess, CompareApplications(sProcess, ToNString(lapseCaptureModeApp)));
+                }
             }
-            sProcess = Append(sProcess, " - ");
-            sProcess = Append(sProcess, oProc->MainWindowTitle->ToString());
-            sProcess = Append(sProcess, " - (ID:");
-            sProcess = Append(sProcess, oProc->Id.ToString());
-            sProcess = Append(sProcess, ")");
-            chkCMA->Items->Add(sProcess, CompareApplications(sProcess, ToNString(lapseCaptureModeApp)));
         }
+        oApps.Clear();
         chkCMA->Enabled = true;
     }
 
@@ -369,6 +402,11 @@ static void CaptureScreenshot()
     // Wait until finish exporting.
     while (mApp.bIsExporting) { Application::DoEvents(); Sleep(250); }
 
+    String^ oFileName = Append(mApp.GetOutputFolder(), 
+                        Append(mApp.countShoots.ToString("D5"), "_Screenshot.png"));
+
+    Icon^ ico_cam = GetIcon("ico_cam");
+    mApp.GetNotifyIcon()->Icon = ico_cam;
     if (ToNString(mApp.lapseCaptureModeDesc) != "Application" && 
         ToNString(mApp.lapseCaptureModeDesc) != "Region" ) 
     {
@@ -376,33 +414,70 @@ static void CaptureScreenshot()
         Bitmap^ oBmp = gcnew Bitmap( oCaptureSize->Width, oCaptureSize->Height, PixelFormat::Format32bppArgb );
         Graphics^ oGfx = Graphics::FromImage(oBmp);
         oGfx->CopyFromScreen( oCaptureSize->X, oCaptureSize->Y, 0, 0, oCaptureSize->Size, CopyPixelOperation::SourceCopy);
-        String^ oFileName = Append(mApp.GetOutputFolder(), 
-                            Append(mApp.countShoots.ToString("D5"), "_Screenshot.png"));
         oBmp->Save(oFileName, ImageFormat::Png);
     }
     else if (ToNString(mApp.lapseCaptureModeDesc) == "Application")
     {
-        Process^ oProc = Process::GetProcessById(int::Parse(Split(ToNString(mApp.lapseCaptureModeApp))[4]));
-        HWND hWnd = (HWND)oProc->MainWindowHandle.ToInt64();
-        HDC hdcSrc = GetWindowDC(hWnd);
-        RECT wRect = {0,0,0,0};
-        GetClientRect(hWnd, &wRect);
-        HDC hdcDest = CreateCompatibleDC(hdcSrc);
-        HBITMAP hBitmap = CreateCompatibleBitmap(hdcSrc, wRect.right - wRect.left, wRect.bottom - wRect.top);
-        HGDIOBJ hOld = SelectObject(hdcDest, hBitmap);
-        BitBlt(hdcDest, 0, 0, wRect.right - wRect.left, wRect.bottom - wRect.top, hdcSrc, 0, 0, SRCCOPY);
-        SelectObject(hdcDest, hOld);
-        DeleteDC(hdcDest);
-        ReleaseDC(hWnd, hdcSrc);
-        Bitmap^ oBmp = Bitmap::FromHbitmap((IntPtr)hBitmap);
-        String^ oFileName = Append(mApp.GetOutputFolder(), 
-                            Append(mApp.countShoots.ToString("D5"), "_Screenshot.png"));
-        oBmp->Save(oFileName, ImageFormat::Png);
-        DeleteObject(hBitmap);
+        //Process^ oProc = Process::GetProcessById(int::Parse(Split(ToNString(mApp.lapseCaptureModeApp))[4]));
+        HWND hWnd = (HWND)Int64::Parse(Split(ToNString(mApp.lapseCaptureModeApp))[4]);
+        if (GetWindowLong(hWnd, GWL_STYLE) < 50000000) 
+        {
+            // Common Windows32, use BitBlt capture
+            RECT wRect = {0,0,0,0}; RECT wCltRect = {0,0,0,0};
+            GetWindowRect(hWnd, &wRect);
+            MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT) &wRect, 2);
+            GetClientRect(hWnd, &wCltRect);
+            int iBorderX = ((wRect.right - wRect.left) - (wCltRect.right - wCltRect.left)) / 2;
+            int iBorderY = ((wRect.bottom - wRect.top) - (wCltRect.bottom - wCltRect.top)) - iBorderX;
+            HDC hSrcDC = GetWindowDC(hWnd);
+            HDC hCptDC = CreateCompatibleDC(hSrcDC);
+            HBITMAP hBitmap = CreateCompatibleBitmap(hSrcDC, wCltRect.right - wCltRect.left, wCltRect.bottom - wCltRect.top);
+            SelectObject(hCptDC, hBitmap);
+            BitBlt(hCptDC, 0, 0, wRect.right - wRect.left, wRect.bottom - wRect.top, 
+                   hSrcDC, iBorderX, iBorderY, SRCCOPY|CAPTUREBLT);
+
+            Bitmap^ oBmp = Bitmap::FromHbitmap((IntPtr)hBitmap);
+            oBmp->Save(oFileName, ImageFormat::Png);
+            ReleaseDC(hWnd, hSrcDC);
+            DeleteDC(hCptDC);
+            DeleteObject(hBitmap);
+        }
+        else
+        {
+            // Custom render (DirectX/WinUI/Qt/Other), use DLL to capture.
+            String^ oFileBmp = oFileName->Replace("png","bmp");
+            CaptureFromDLL(hWnd, ToCString(oFileBmp));
+            Application::DoEvents();
+            bool bCopyDone = false;
+            while (!bCopyDone)
+            {
+                try {
+                    if (File::Exists(oFileBmp)) 
+                    {
+                        Bitmap^ oBmp = gcnew Bitmap(oFileBmp);
+                        oBmp->Save(oFileName, ImageFormat::Png);
+                        Application::DoEvents();
+                        oBmp->~Bitmap();
+                        File::Delete(oFileBmp);
+                        bCopyDone = true;
+                    }
+                    Application::DoEvents();
+                } catch (Exception^ e) {
+                    (void)e;
+                    bCopyDone = false;
+                    Sleep(1000);
+                    Application::DoEvents();
+                }
+            }
+        }
     }
 
     if ( mApp.bIs1stShot ) { mApp.StartTimer(); }
     mApp.countShoots++;
+
+    //Force a garbage collection to keep low memory profile
+    GC::Collect(0, GCCollectionMode::Default, false);
+    mApp.GetNotifyIcon()->Icon = GetIcon("ico_app");
 }
 
 static void CaptureTask( System::Object^ sender, Timers::ElapsedEventArgs^ e )
@@ -442,7 +517,8 @@ void BlinkNotify()
 /// 
 void MainForm::MainForm_Load ( System::Object^ sender, System::EventArgs^ e )
 {
-    // Save global reference to ntfSystray
+    // Save global references
+    mApp.hMainForm = (HWND)this->Handle.ToInt64();
     mApp.SetNotifyIcon(ntfSystray);
 
     // Load form icons and menu images from custom Main.RESX
@@ -531,6 +607,9 @@ void MainForm::MainForm_Load ( System::Object^ sender, System::EventArgs^ e )
     oSR->Close();
     oFS->Close();
 
+    if (cmbCaptureMode->SelectedItem->ToString() == "Application" &&
+        mApp.lapseCaptureModeDesc != "Application") { mApp.LoadApplications(chkCaptureModeApp); }
+
     ExportSettings();
 
     mApp.bIsStarting = false;
@@ -580,9 +659,6 @@ void MainForm::MainForm_Deactivate ( System::Object^ sender, System::EventArgs^ 
 
 void MainForm::ExportSettings()
 {
-    if (cmbCaptureMode->SelectedItem->ToString() == "Application" &&
-        mApp.lapseCaptureModeDesc != "Application") { mApp.LoadApplications(chkCaptureModeApp); }
-
     mApp.SetOutputFolder(txtScreenshots->Text);
     mApp.lapseCaptureMode       = cmbCaptureMode->SelectedIndex;
     mApp.lapseCaptureModeDesc   = ToCString(cmbCaptureMode->SelectedItem->ToString());
@@ -652,7 +728,7 @@ void MainForm::mnuCaption_Click ( System::Object^ sender, System::EventArgs^ e )
 
     // SRT Format
     //   Sequence number
-    //   Timecode 00:00:00:00-->00:00:00:00
+    //   Timecode 00:00:00:00 --> 00:00:00:00
     //   Caption text
     //   Blank line separator
 
@@ -691,6 +767,8 @@ void MainForm::mnuPause_Click ( System::Object^ sender, System::EventArgs^ e )
 
 void MainForm::mnuSettings_Click ( System::Object^ sender, System::EventArgs^ e )
 {
+    if (mApp.lapseCaptureModeDesc == "Application") { mApp.LoadApplications(chkCaptureModeApp); }
+
     // Add scrollbar space if Settings form height is bigger than monitor height
     if ( this->Height > SystemInformation::WorkingArea.Height )
     {
@@ -874,10 +952,20 @@ struct ExportType {
 };
 
 void ExportTimelapse( ExportType::Size expSize, ExportType::Format expFormat) {
+    NotifyIcon^ ntfSystray = mApp.GetNotifyIcon();
+
+    if ( !File::Exists(mApp.GetFFMpegPath()) )
+    {
+        ntfSystray->BalloonTipIcon = ToolTipIcon::Error;
+        ntfSystray->BalloonTipTitle = "TimelapseFX - FFMpeg not found.";
+        ntfSystray->BalloonTipText = "Go to Settings and inform FFMpeg.exe location.";
+        ntfSystray->ShowBalloonTip(1000);
+        return;
+    }
+    
     Application::UseWaitCursor = true;
     mApp.bIsExporting = true;
 
-    NotifyIcon^ ntfSystray = mApp.GetNotifyIcon();
     ntfSystray->Icon = GetIcon("ico_ffm");
     ntfSystray->Text = "Exporting video...";
 

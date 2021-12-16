@@ -24,7 +24,4 @@
       <Filter>res</Filter>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup>
-    <Text Include="_Credits.txt" />
-  </ItemGroup>
 </Project>
