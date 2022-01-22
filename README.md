@@ -50,6 +50,10 @@ Project info/blog at <a href="https://dfx.lv/TimelapseFX" target="_blank">https:
 - Capture Mode by Screen Region, like Windows Snip & Sketch (Win+Shift+S).<br/>
 - Capture Mode by Application Region, to capture just part of the application (like: viewport).<br/><br/>
 
+## Changelog
+1.2 - Overall improvements and fixes.
+      Better GIF conversion.
+
 ## Credits
 
 Microsoft FluentUI System Icons - https://github.com/microsoft/fluentui-system-icons <br/>
@@ -57,6 +61,7 @@ FFMpeg - https://ffmpeg.org <br/>
 MajorGeeks FFMpeg Build - https://m.majorgeeks.com/files/details/ffmpeg.html <br/>
 IsAltTabWindow() from Microsoft - https://github.com/microsoft/Windows.UI.Composition-Win32-Samples/blob/master/cpp/ScreenCaptureforHWND/ScreenCaptureforHWND/Win32WindowEnumeration.h<br/>
 Gil123 at StackOverflow, for the Windowless ScreenCaptureforHWND code - https://stackoverflow.com/questions/11283015/screen-capture-specific-window<br/><br/>
+High quality GIF with FFmpeg by ubitux - http://blog.pkh.me/p/21-high-quality-gif-with-ffmpeg.html
 
 ## License
 
