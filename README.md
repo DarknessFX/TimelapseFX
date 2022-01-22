@@ -59,7 +59,7 @@ Project info/blog at <a href="https://dfx.lv/TimelapseFX" target="_blank">https:
 - New DirectX capture helper to improve screenshot compatibility with custom renders (like DirectX, Qt, WinUI).
 - New Camera icon to display the capture is in progress.
 - Better and faster Applications list.
-- Overall bug fixes and improvements.
+- Overall bug fixes and improvements.<br/><br/>
  
 ## Credits
 
