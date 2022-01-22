@@ -22,7 +22,7 @@ using namespace TimelapseFX;
 #pragma endregion
 
 
-std::string VERSION = "1.1";
+std::string VERSION = "1.2";
 
 
 #pragma region Helpers functions
@@ -273,8 +273,8 @@ public:
             oSW->WriteLine("chkExpAspect=false");
             oSW->Close();
             oFS->Close();
+            if (!Directory::Exists(GetOutputFolder())) { Directory::CreateDirectory(GetOutputFolder()); }
         }
-        if (!Directory::Exists(GetOutputFolder())) { Directory::CreateDirectory(GetOutputFolder()); }
     }
 
     bool IgnoreApplications ( Process^ oProc) 
@@ -372,7 +372,6 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 {
     // Pre-Initialize Main Settings
     mApp.CheckIni();
-    mApp.countShoots = Directory::GetFiles(mApp.GetOutputFolder(), "?????_Screenshot.png")->Length;    
 
     // Load MainForm in systray
     Application::Run(gcnew MainForm());
@@ -583,7 +582,14 @@ void MainForm::MainForm_Load ( System::Object^ sender, System::EventArgs^ e )
         String^ sLine = oSR->ReadLine();
         String^ sControl = sLine->Substring(0, sLine->IndexOf("="));
         String^ sValue = sLine->Substring(sLine->IndexOf("=") + 1);
-        if (sControl == "txtScreenshots") { txtScreenshots->Text = sValue; }
+        if (sControl == "txtScreenshots") { 
+            if (Directory::Exists(sValue))
+            {
+                txtScreenshots->Text = sValue; 
+                mApp.SetOutputFolder(sValue);
+                mApp.countShoots = Directory::GetFiles(sValue, "?????_Screenshot.png")->Length;    
+            }
+        }
         if (sControl == "cmbCaptureMode") { cmbCaptureMode->SelectedIndex = int::Parse(sValue); }
         if ((sControl == "chkCaptureModeApp" || sControl == "chkCaptureModeAppDesc") &&
              sValue != "") { 
@@ -819,6 +825,8 @@ void MainForm::AllControlsEnabled(bool bEnabled)
 void MainForm::txtScreenshots_Leave ( System::Object^ sender, System::EventArgs^ e )
 {
     if (!Directory::Exists(txtScreenshots->Text)) { txtScreenshots->Text = mApp.GetOutputFolder(); }
+    if (txtScreenshots->Text->Substring(txtScreenshots->Text->Length - 1) != "\\") { txtScreenshots->Text = Append(txtScreenshots->Text, "\\"); }
+    
 }
 
 void MainForm::btnScreenshots_Click ( System::Object^ sender, System::EventArgs^ e )
@@ -1015,7 +1023,7 @@ void ExportTimelapse( ExportType::Size expSize, ExportType::Format expFormat) {
             expFile = Append(expFile, ".avi");
             break;
         case ExportType::Format::GIF:
-            expFile = Append(expFile, ".gif");
+            expFile = Append(expFile, "_.mp4"); // new improved GIF, use MP4 temp for 1st pass
             break;
     }
     if ( File::Exists(Append(mApp.GetOutputFolder(), "TimelapseFX_caption.srt") ) )
@@ -1040,6 +1048,51 @@ void ExportTimelapse( ExportType::Size expSize, ExportType::Format expFormat) {
 
     //DEBUG: 
     OutputDebugStringA(ToCString(Append(mApp.GetFFMpegPath(), expProc)).c_str());
+    OutputDebugStringA("\n");
+
+    if (expFormat == ExportType::Format::GIF)
+    {
+        // new improved GIF
+        // Credits to http://blog.pkh.me/p/21-high-quality-gif-with-ffmpeg.html
+        // GIF 2nd Pass, from MP4 to Palette PNG
+
+        String^ expPal = "\"";
+        expPal = Append(expPal, mApp.GetOutputFolder());
+        expPal = Append(expPal, "TimelapseFX_gif_palette.png");
+        expPal = Append(expPal, "\"");
+
+        oProc->StartInfo->FileName = mApp.GetFFMpegPath();
+        oProc->StartInfo->Arguments = Append(Append(Append(" -i ", expFile), " -vf \"scale=-1:-1:flags=lanczos,palettegen=stats_mode=full\" -y "), expPal);
+        oProc->StartInfo->WindowStyle = ProcessWindowStyle::Hidden;
+        oProc->StartInfo->CreateNoWindow = true;
+        oProc->Start();
+        oProc->WaitForExit();
+        oProc->Close();
+
+        //DEBUG: 
+        OutputDebugStringA(ToCString(Append(mApp.GetFFMpegPath(), oProc->StartInfo->Arguments)).c_str());
+        OutputDebugStringA("\n");
+
+        expProc = Append(" -i ", expFile);
+        expProc = Append(expProc, " -i ");
+        expProc = Append(expProc, expPal);
+
+        // GIF 3nd Pass, MP4 + Palette PNG to GIF
+        oProc->StartInfo->FileName = mApp.GetFFMpegPath();
+        oProc->StartInfo->Arguments = Append(Append(expProc, " -lavfi \"scale=-1:-1:flags=lanczos [x]; [x][1:v] paletteuse=dither=sierra2\" -y "), expFile->Replace("_.mp4", ".gif"));
+        oProc->StartInfo->WindowStyle = ProcessWindowStyle::Hidden;
+        oProc->StartInfo->CreateNoWindow = true;
+        oProc->Start();
+        oProc->WaitForExit();
+        oProc->Close();
+
+        //DEBUG: 
+        OutputDebugStringA(ToCString(Append(mApp.GetFFMpegPath(), oProc->StartInfo->Arguments)).c_str());
+        OutputDebugStringA("\n");
+
+        File::Delete(expPal->Replace("\"", "")->Trim());
+        File::Delete(expFile->Replace("\"", "")->Trim());
+    }
 
     ntfSystray->Text = "TimelapseFX - Click to capture screenshot.";
     ntfSystray->Icon = GetIcon("ico_app");
