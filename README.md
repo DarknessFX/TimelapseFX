@@ -51,9 +51,16 @@ Project info/blog at <a href="https://dfx.lv/TimelapseFX" target="_blank">https:
 - Capture Mode by Application Region, to capture just part of the application (like: viewport).<br/><br/>
 
 ## Changelog
-1.2 - Overall improvements and fixes.
-      Better GIF conversion.
-
+1.2
+- Overall improvements and fixes.
+- Better GIF conversion.
+ 
+1.1
+- New DirectX capture helper to improve screenshot compatibility with custom renders (like DirectX, Qt, WinUI).
+- New Camera icon to display the capture is in progress.
+- Better and faster Applications list.
+- Overall bug fixes and improvements.
+ 
 ## Credits
 
 Microsoft FluentUI System Icons - https://github.com/microsoft/fluentui-system-icons <br/>
